@@ -114,17 +114,21 @@ runReflexBrickApp initial mGenE initialState fn = do
     mbChan <- fromMaybe (pure Nothing) $ (fmap Just . liftIO . newBChan $ 1) <$ mGenE
 
     void . liftIO . forkIO $ do
+      putStrLn "> initial"
       void $ customMain (V.mkVty V.defaultConfig) mbChan app initialState
       onQuit ()
 
     let
       generate bChan genE = void . liftIO . forkIO . forever $ do
         e <- genE
+        putStrLn "> initial data (?)"
         writeBChan bChan e
     fromMaybe (pure ()) $ generate <$> mbChan <*> mGenE
 
     void . liftIO . forkIO . forever $ do
       e <- takeMVar (rbeToReflex events)
+      -- putStrLn $ show e
+      putStrLn "> e <- takeMVar (rbeToReflex events)"
       onEventIn e
 
     rba <- fn (rbEventSelector eEventIn)
