@@ -94,7 +94,7 @@ rbEventSelector =
   fan .
   fmap ((\(k :=> v) -> singleton k v) . brickEventToRBEvent)
 
-runReflexBrickApp :: Ord n
+runReflexBrickApp :: (Ord n, Show n, Show e)
                   => EventM n e
                   -- ^ An initial action to perform
                   -> Maybe (IO e)
@@ -126,13 +126,18 @@ runReflexBrickApp initial mGenE initialState fn = do
     fromMaybe (pure ()) $ generate <$> mbChan <*> mGenE
 
     void . liftIO . forkIO . forever $ do
-      e <- takeMVar (rbeToReflex events)
-      -- putStrLn $ show e
-      putStrLn "> e <- takeMVar (rbeToReflex events)"
-      onEventIn e
+      evt <- takeMVar (rbeToReflex events)
+      putStr $ show evt
+      onEventIn evt
 
     rba <- fn (rbEventSelector eEventIn)
     eEventOut <- nextEvent initialState eEventIn rba
-    performEvent_ $ liftIO . putMVar (rbeFromReflex events) <$> eEventOut
+    performEvent_ $ liftIO . putAndShow (rbeFromReflex events) <$> eEventOut
+    -- performEvent_ $ liftIO . putMVar (rbeFromReflex events) <$> eEventOut
 
     pure ((), eQuit)
+
+putAndShow target evt = do
+    putMVar target evt
+    putStr "> rbeFromReflex"
+
