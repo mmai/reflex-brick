@@ -17,18 +17,19 @@ import qualified Graphics.Vty as V
 
 import           Data
 import           APIClient
-import           Template ( appStateToBrickAppState, Name(..), initialForm, handleSearchForm )
+import           Template ( appStateToBrickAppState, Name(..), searchForm, handleSearchChange )
 
 main :: IO ()
 main = do
   let initial = AppState 
-        { _searchFormState = initialForm
+        -- { _search = "reflex"
+        { _searchFormState = searchForm "reflex"
         , _packages = []
         }
   apiclient <- getClient
-  runReflexBrickApp (pure ()) Nothing (appStateToBrickAppState initial :: ReflexBrickAppState Name) $ \es -> do
+  runReflexBrickApp (pure ()) Nothing (appStateToBrickAppState initial :: ReflexBrickAppState Name) handleSearchChange $ \es -> do
     let eQuit   = select es $ RBKey V.KEsc
-        eSearch = const "reflex" <$> select es ( RBKey V.KEnter ) 
+        eSearch = const "brick" <$> select es ( RBKey V.KEnter ) -- => laisser brick nous donner l'évenement "search launched on 'my search term'" 
         eWrite =  select es ( RBKey (V.KChar 'f') ) -- select all other keypresses ?
 
     -------------- trying to construct searchPackages Event
@@ -49,7 +50,7 @@ main = do
     -------------- end trying to construct searchPackages Event
 
     -- let eUpdateForm = handleSearchForm <$> eWrite
-    let eUpdateForm = handleSearchForm (B.VtyEvent (V.EvKey (V.KChar 'f') [])) <$ eWrite
+    -- let eUpdateForm = handleSearchForm (B.VtyEvent (V.EvKey (V.KChar 'f') [])) <$ eWrite
 
     -- dState <- liftIO $ foldDyn (=<<) (pure initial) eUpdateForm
 

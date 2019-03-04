@@ -2,8 +2,8 @@
 
 module Template ( appStateToBrickAppState
                 , Name (..)
-                , initialForm
-                , handleSearchForm
+                , searchForm
+                , handleSearchChange
                 ) where
 
 import           Control.Lens
@@ -34,27 +34,28 @@ import Brick.Focus
 
 import Data 
 
-initialForm :: Form FormState e Name
-initialForm = newForm [ editTextField fsf SearchField (Just 1) ] (FormState "reflex")
+searchForm :: Text -> Form FormState e Name
+searchForm searchText = newForm [ editTextField fsf SearchField (Just 1) ] (FormState searchText)
 
-handleSearchForm :: BrickEvent Name BrickAppEvent -> AppState -> EventM Name AppState
-handleSearchForm e s = do
-  newState <- handleFormEvent e (s ^. searchFormState )
-  return $ s & searchFormState .~ newState
+handleSearchChange :: BrickEvent Name BrickAppEvent
+                     -> AppState -> EventM Name (Next AppState)
+handleSearchChange ev s = do
+  fs' <- handleFormEvent ev (s ^. searchFormState)
+  -- emit event for Reflex ?
+  continue $ s & searchFormState .~ fs'
 
 appStateToBrickAppState :: AppState -> ReflexBrickAppState Name
-appStateToBrickAppState s = ReflexBrickAppState [window] (focusRingCursor formFocus searchForm) stylesMap 
+appStateToBrickAppState s = ReflexBrickAppState [window] (focusRingCursor formFocus (searchForm "placeholder")) stylesMap 
     where 
         window  =  B.borderWithLabel (str "Search on Hackage") $ 
                       hBox [ usageWidget
                            , C.hCenter $ padAll 1 $ vBox 
-                                  [ renderForm searchForm
+                                  [ renderForm $ s ^. searchFormState
                                   , hBox [ packagesListWidget ]
                                   ]
                            ] 
         packageWidget p    = hBox [ txt $ p ^. name ]
         packagesListWidget = vBox [ C.hCenter $ vBox (fmap packageWidget (s ^. packages))]
-        searchForm = s ^. searchFormState
         usageWidget        = B.borderWithLabel (str "Usage") $ 
           vBox [ txt "<ENTER> : search"
                , txt "<ESC>   : quit"

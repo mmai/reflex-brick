@@ -34,6 +34,8 @@ import qualified Graphics.Vty as V
 import Data.Dependent.Sum (DSum(..))
 import Data.Dependent.Map (singleton)
 
+import Brick (BrickEvent(..), Next)
+
 import Reflex.Brick.Types
 import Reflex.Brick.Events
 
@@ -43,18 +45,26 @@ data ReflexBrickEvents e n =
   , rbeFromReflex :: MVar (RBNext (ReflexBrickAppState n))
   }
 
-mkReflexApp :: EventM n e -> IO (ReflexBrickEvents e n, App (ReflexBrickAppState n) e n)
-mkReflexApp initial = do
+mkReflexApp :: EventM n e ->
+  (BrickEvent n e -> ReflexBrickAppState n -> EventM n (Next (ReflexBrickAppState n))) ->
+  IO (ReflexBrickEvents e n, App (ReflexBrickAppState n) e n)
+mkReflexApp initial handleForm = do
   (toReflex, fromReflex) <- (,) <$> newEmptyMVar <*> newEmptyMVar
   let
-    process _ e = do
-      x <- liftIO $ do
-        putMVar toReflex e
-        takeMVar fromReflex
-      case x of
-        RBContinue s -> continue s
-        RBHalt s -> halt s
-        RBSuspendAndResume s -> suspendAndResume s
+    processReflex e = do
+            x <- liftIO $ do
+              putStr "> process "
+              putMVar toReflex e
+              takeMVar fromReflex
+            case x of
+              RBContinue s -> continue s
+              RBHalt s -> halt s
+              RBSuspendAndResume s -> suspendAndResume s
+    process s e = 
+       case e of
+         VtyEvent (V.EvKey V.KEsc [])   -> processReflex e
+         VtyEvent (V.EvKey V.KEnter []) -> processReflex e
+         _ -> handleForm e s
     events = ReflexBrickEvents toReflex fromReflex
     app = App _rbWidgets _rbCursorFn process (<$ initial) _rbAttrMap
   pure (events, app)
@@ -101,13 +111,16 @@ runReflexBrickApp :: (Ord n, Show n, Show e)
                   -- ^ An action which provides values for the custom event
                   -> ReflexBrickAppState n
                   -- ^ The initial state of the application
+                  -> (BrickEvent n e -> ReflexBrickAppState n -> EventM n (Next (ReflexBrickAppState n)))
+                  -- ^ The function to internally process events which should not go to the frp network
                   -> (forall t m. BasicGuestConstraints t m
                       => EventSelector t (RBEvent n e)
                       -> BasicGuest t m (ReflexBrickApp t n))
                   -- ^ The FRP network for the application
                   -> IO ()
-runReflexBrickApp initial mGenE initialState fn = do
-  (events, app) <- mkReflexApp initial
+runReflexBrickApp initial mGenE initialState handleForm fn = do
+  (events, app) <- mkReflexApp initial handleForm
+  -- (events, app) <- mkReflexApp initial
   basicHostWithQuit $ do
     (eQuit, onQuit) <- newTriggerEvent
     (eEventIn, onEventIn) <- newTriggerEvent

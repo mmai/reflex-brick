@@ -15,6 +15,7 @@ import           Brick.Forms (Form)
 
 data AppState = AppState
   { _searchFormState  :: Form FormState BrickAppEvent Name
+  -- { _search  :: Text
   , _packages :: [Package]
   }
 
